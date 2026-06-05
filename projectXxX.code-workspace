@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"liveshare.allowGuestDebugControl": true,
+		"liveshare.allowGuestTaskControl": true,
+		"liveshare.alwaysFollowHost": true,
+		"files.exclude": {
+			"": true,
+			"**/.git": false
+		},
+		"liveshare.showReadOnlyUsersInEditor": "always"
+	}
+}

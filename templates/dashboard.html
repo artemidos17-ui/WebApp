@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weather Dashboard</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500&display=swap">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; } /* ->"*" “apply to ALL elements”.*/
+        body { background: #f5f5f5; padding: 2rem; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+        .card { background: white; border-radius: 12px; border: 1px solid #eee; padding: 1rem 1.25rem; cursor: pointer; }
+        .card-city { font-size: 13px; color: #888; margin-bottom: 8px; }
+        .card-temp { font-size: 28px; font-weight: 500; margin-bottom: 4px; }
+        .card-desc { font-size: 12px; color: #888; margin-bottom: 12px; }
+        .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; border-top: 1px solid #eee; padding-top: 10px; }
+        .card-stat label { font-size: 11px; color: #aaa; display: block; }
+        .card-stat span { font-size: 13px; font-weight: 500; }
+        .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .chart-box { background: white; border-radius: 12px; border: 1px solid #eee; padding: 1rem 1.25rem; }
+        .chart-title { font-size: 13px; font-weight: 500; margin-bottom: 12px; }
+        .bar-row { margin-bottom: 10px; }
+        .bar-label { display: flex; justify-content: space-between; font-size: 12px; color: #888; margin-bottom: 3px; }
+        .bar-track { height: 6px; background: #eee; border-radius: 3px; }
+        .bar-fill-green { height: 100%; background: #1D9E75; border-radius: 3px; }
+        .bar-fill-blue { height: 100%; background: #378ADD; border-radius: 3px; }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.45);
+        }
+        .modal-content {
+            background: white;
+            margin: 4% auto;
+            padding: 20px;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 900px;
+            position: relative;
+        }
+        .modal-content button {
+            border: 1px solid #ddd;
+            background: #fff;
+            color: #333;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .modal-content button.active {
+            background: #16a085;
+            color: white;
+            border-color: #16a085;
+        }
+        .modal-close {
+            position: absolute;
+            right: 16px;
+            top: 16px;
+            font-size: 24px;
+            color: #333;
+            cursor: pointer;
+        }
+        .popup-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 1rem; }
+        .popup-chart-box { background: #f9f9f9; border-radius: 12px; padding: 12px; border: 1px solid #eee; }
+        .modal-content canvas { width: 100% !important; height: 360px !important; display: block; }
+        form { display: flex; gap: 8px; }
+        input[type=text] { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        button { padding: 8px 16px; background: #16a085; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1 style="font-size:22px; font-weight:500;">Weather dashboard</h1>
+            <p style="font-size:14px; color:#888;">Live data from OpenWeatherMap</p>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+        {% for message in messages %}
+            <p style="color:red; margin-bottom:1rem;">{{ message }}</p>
+        {% endfor %}
+    {% endwith %}
+
+    <div class="cards">
+        {% for city, d in cities_data.items() %}
+        <div class="card" data-city="{{ city }}" onclick="openCityPopup('{{ city }}')">
+            <div class="card-city">{{ d.name }}</div>
+            <div class="card-temp">{{ d.main.temp|round|int }}°C</div>
+            <div class="card-desc">{{ d.weather[0].description }}</div>
+            <div class="card-grid">
+                <div class="card-stat"><label>Humidity</label><span>{{ d.main.humidity }}%</span></div>
+                <div class="card-stat"><label>Wind</label><span>{{ d.wind.speed }} m/s</span></div>
+                <div class="card-stat"><label>Feels like</label><span>{{ d.main.feels_like|round|int }}°C</span></div>
+                <div class="card-stat"><label>Pressure</label><span>{{ d.main.grnd_level }} hPa</span></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div style="margin-top:2rem;">
+    <form method="POST" style="display:flex; gap:8px; margin-bottom:1rem;">
+        <input type="text" name="city" placeholder="Search any city..." required>
+        <button type="submit">Search</button>
+    </form>
+</div>
+
+    <div style="margin-top:1.5rem; background:white; border:1px solid #eee; border-radius:12px; padding:1rem;">
+        <h2 style="font-size:18px; font-weight:500; margin-bottom:1rem;">Recent stored measurements</h2>
+        <ul style="list-style:none; padding-left:0;">
+            {% for m in measurements[:4] %}
+            <li style="padding:8px 0; border-bottom:1px solid #f0f0f0;">
+                <strong>{{ m.sensor.name }}</strong> — {{ m.category.name }}: {{ m.value }}
+                <span style="color:#666; font-size:12px; display:block; margin-top:4px;">{{ m.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+            </li>
+            {% else %}
+            <li style="color:#666;">No measurements stored yet.</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div id="cityPopup" class="modal">
+      <div class="modal-content">
+        <span class="modal-close" onclick="closeCityPopup()">×</span>
+
+        <h2 id="popupTitle"></h2>
+        <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" onclick="switchInterval('minute')" id="minuteBtn">Minute</button>
+            <button type="button" onclick="switchInterval('hourly')" id="hourlyBtn">Hourly</button>
+            <button type="button" onclick="switchInterval('daily')" id="dailyBtn">Daily</button>
+        </div>
+        <canvas id="cityChart"></canvas>
+      </div>
+     </div>
+
+    {% if data and data.cod == 200 %}
+    <div style="margin-top:1.5rem;">
+        <h2 style="font-size:18px; font-weight:500; margin-bottom:1rem;">{{ data.name }}, {{ data.sys.country }}</h2>
+        <div class="card" style="max-width:300px;">
+            <div class="card-temp">{{ data.main.temp|round|int }}°C</div>
+            <div class="card-desc">{{ data.weather[0].description }}</div>
+            <div class="card-grid">
+                <div class="card-stat"><label>Humidity</label><span>{{ data.main.humidity }}%</span></div>
+                <div class="card-stat"><label>Wind</label><span>{{ data.wind.speed }} m/s</span></div>
+                <div class="card-stat"><label>Feels like</label><span>{{ data.main.feels_like|round|int }}°C</span></div>
+                <div class="card-stat"><label>Pressure</label><span>{{ data.main.grnd_level }} hPa</span></div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let cityChartInstance = null;
+
+        let activeCity = null;
+        let activeInterval = 'hourly';
+
+        // anoigei to popup gia ena sygkekrimeno city
+        function openCityPopup(city, interval = 'hourly') {
+            activeCity = city;
+            activeInterval = interval;
+            document.getElementById('popupTitle').innerText = city + ' charts';
+            document.getElementById('cityPopup').style.display = 'block';
+            setActiveIntervalButton(interval);
+
+            fetchGraphData(city, interval);
+        }
+
+        // kanei highlight to button pou einai trexon interval
+        function setActiveIntervalButton(interval) {
+            ['minute', 'hourly', 'daily'].forEach((name) => {
+                const btn = document.getElementById(name + 'Btn');
+                if (btn) {
+                    btn.classList.toggle('active', name === interval);
+                }
+            });
+        }
+
+        // zitaei ta data apo ton backend me tin epilogi interval
+        function fetchGraphData(city, interval) {
+            fetch(`/graph-data/${encodeURIComponent(city)}?interval=${encodeURIComponent(interval)}`)
+                .then((response) => response.json())
+                .then((data) => {
+                    if (!data || !data.timestamps || data.timestamps.length === 0) {
+                        renderEmptyChart();
+                        return;
+                    }
+                    renderCityChart(data.timestamps, data.temperature, data.humidity, city, interval);
+                })
+                .catch((error) => {
+                    console.error('Graph data load failed', error);
+                    renderEmptyChart();
+                });
+        }
+
+        // allazei to interval otan pataei o xristis ena apo ta button
+        function switchInterval(interval) {
+            if (!activeCity) {
+                return;
+            }
+            activeInterval = interval;
+            setActiveIntervalButton(interval);
+            fetchGraphData(activeCity, interval);
+        }
+
+        // Draw the graph with Chart.js, me ta temperatures kai hums pou epestrepsan apo backend
+        function renderCityChart(labels, temps, hums, city, interval) {
+            const ctx = document.getElementById('cityChart').getContext('2d');
+            if (cityChartInstance) {
+                cityChartInstance.destroy();
+            }
+            cityChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Temperature (°C)',
+                            data: temps,
+                            borderColor: '#1D9E75',
+                            backgroundColor: 'rgba(29, 158, 117, 0.2)',
+                            fill: false,
+                            tension: 0.25,
+                            pointRadius: 3,
+                        },
+                        {
+                            label: 'Humidity (%)',
+                            data: hums,
+                            borderColor: '#378ADD',
+                            backgroundColor: 'rgba(55, 138, 221, 0.2)',
+                            fill: false,
+                            tension: 0.25,
+                            pointRadius: 3,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        title: {
+                            display: true,
+                            text: city + ' temperature and humidity history',
+                            padding: { top: 10, bottom: 10 },
+                        },
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Timestamp' },
+                        },
+                        y: {
+                            title: { display: true, text: 'Value' },
+                        },
+                    },
+                },
+            });
+        }
+
+        // an den exei data i o server apokrisei me error, ftiaxnoume placeholder
+        function renderEmptyChart() {
+            if (cityChartInstance) {
+                cityChartInstance.destroy();
+                cityChartInstance = null;
+            }
+            const canvas = document.getElementById('cityChart');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.font = '14px Poppins, sans-serif';
+            ctx.fillStyle = '#333';
+            ctx.fillText('No stored temp/humidity data available yet.', 20, 50);
+        }
+
+        function closeCityPopup() {
+            document.getElementById('cityPopup').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('cityPopup');
+            if (event.target === modal) {
+                closeCityPopup();
+            }
+        };
+    </script>
+</body>
+</html>
